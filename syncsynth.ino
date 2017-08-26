@@ -6,6 +6,7 @@
 #define LED     D0        // Led in NodeMCU at pin GPIO16 (D0).
 #define SAMPLE_RATE 44100
 
+#include "clock.h"
 #include "lerp.h"
 #include "lfsr.h"
 #include "saw.h"
@@ -45,6 +46,7 @@ Saw saw;
 LFSR lfsr;
 AREnvelope lfsr_env;
 Bitcrush lfsr_crush;
+Clock clock;
 
 uint8 hh_vel1 = 160;
 uint8 hh_vel2 = 90;
@@ -79,6 +81,7 @@ void setup(void) {
   pinMode(A0, INPUT);
   pinMode(LED, OUTPUT);
 
+  clock.set_tempo(110000);
   saw.set_period(200);
   
   //Serial.begin(115200);
@@ -86,7 +89,8 @@ void setup(void) {
 
 void loop() {
   if(read_counter == 0) {
-    int sync = analogRead(A0);
+    //int32_t sync = analogRead(A0);
+    int32_t sync = clock.value();
     
     if (!high && sync >= high_threshold) {
       high = true;
@@ -121,7 +125,7 @@ void loop() {
   }
 
   read_counter = (read_counter + 1) % read_interval;
-
+  clock.advance();
 
   int16_t lfsr_osc = 0;
   for(uint8_t i = 0; i < 16; i++) {
