@@ -10,6 +10,7 @@
 #include "lerp.h"
 #include "lfsr.h"
 #include "saw.h"
+#include "sine.h"
 #include "envelope.h"
 #include "bitcrush.h"
 
@@ -47,6 +48,7 @@ LFSR lfsr;
 AREnvelope lfsr_env;
 Bitcrush lfsr_crush;
 Clock clock;
+Sine sine;
 
 uint8 hh_vel1 = 160;
 uint8 hh_vel2 = 90;
@@ -59,11 +61,25 @@ uint32_t sn_atk = 0;
 uint32_t sn_rel = 175;
 uint16_t sn_decimate1 = 4;
 uint16_t sn_decimate2 = 8;
+/*const Step seq[8] = {
+  {1, hh_vel1, hh_atk, hh_rel1, 1},
+  {1, hh_vel2, hh_atk, hh_rel2, 1},
+  {1, sn_vel, sn_atk, sn_rel, sn_decimate1},
+  {1, hh_vel2, hh_atk, hh_rel2, 1},
+  {1, hh_vel1, hh_atk, hh_rel1, 1},
+  {1, hh_vel2, hh_atk, hh_rel2, 1},
+  {1, sn_vel, sn_atk, sn_rel, sn_decimate2},
+  {0, 0, 0, 0, 1}
+};*/
 const Step seq[8] = {
-  {1, hh_vel1, hh_atk, hh_rel1, 1}, {1, hh_vel2, hh_atk, hh_rel2, 1},
-  {1, sn_vel, sn_atk, sn_rel, sn_decimate1}, {1, hh_vel2, hh_atk, hh_rel2, 1},
-  {1, hh_vel1, hh_atk, hh_rel1, 1}, {1, hh_vel2, hh_atk, hh_rel2, 1},
-  {1, sn_vel, sn_atk, sn_rel, sn_decimate2}, {0, 0, 0, 0, 1}
+  {1, 255, 0, 20, 1},
+  {1, 127, 0, 30, 1},
+  {1, 63, 0, 40, 1},
+  {1, 31, 0, 50, 1},
+  {1, 255, 0, 60, 1},
+  {1, 127, 0, 50, 1},
+  {1, 63, 0, 40, 1},
+  {1, 31, 0, 30, 1}
 };
 
 uint8_t read_interval = 32;
@@ -83,6 +99,7 @@ void setup(void) {
 
   clock.set_tempo(110000);
   saw.set_period(200);
+  sine.set_frequency(110);
   
   //Serial.begin(115200);
 }
@@ -112,6 +129,7 @@ void loop() {
       
       switch(s.note) {
       case 1:
+        sine.reset();
 	lfsr_env.set_attack(s.attack_msecs);
 	lfsr_env.set_release(s.release_msecs);
 	lfsr_env.set_peak(peak);
@@ -132,10 +150,12 @@ void loop() {
     lfsr_osc = (lfsr_osc << 1) | lfsr.next_bit();
   }
 
-
   int16_t saw_osc = static_cast<int16_t>(static_cast<uint32_t>(saw.value()) - INT16_MAX);
   saw.advance();
 
+  int16_t sine_osc = sine.value();
+  sine.advance();
+  
   /*
     
     (int32_t) amp - [0, 2^16 - 1]
@@ -152,8 +172,9 @@ void loop() {
   int32_t amp32 = static_cast<int32_t>(amp);
   int32_t lfsr_sample32 = amp32 * lfsr_osc / UINT16_MAX - INT16_MIN;
   int32_t saw_sample32 = amp32 * saw_osc / UINT16_MAX - INT16_MIN;
+  int32_t sine_sample32 = amp32 * sine_osc / UINT16_MAX - INT16_MIN;
   
-  int32_t mix32 = /* saw_sample32 / 2 + */ lfsr_sample32;
+  int32_t mix32 = /* saw_sample32 / 2 + */ sine_sample32;
   int16_t mix = static_cast<int16_t>(mix32);
   
   lfsr_crush.advance(mix);
