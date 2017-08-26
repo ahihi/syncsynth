@@ -41,6 +41,7 @@ struct Step {
 };
 
 const int16_t high_threshold = 20;
+const int32_t max_amp = INT16_MAX;
 bool high = false;
 uint8_t seq_step = 0;
 Saw saw;
@@ -72,18 +73,18 @@ uint16_t sn_decimate2 = 8;
   {0, 0, 0, 0, 1}
 };*/
 const Step seq[8] = {
-  {1, 255, 0, 20, 1},
-  {1, 127, 0, 30, 1},
-  {1, 63, 0, 40, 1},
-  {1, 31, 0, 50, 1},
-  {1, 255, 0, 60, 1},
-  {1, 127, 0, 50, 1},
-  {1, 63, 0, 40, 1},
-  {1, 31, 0, 30, 1}
+  {1, 255, 10, 40, 1},
+  {1, 127, 20, 60, 1},
+  {1, 63, 30, 80, 1},
+  {1, 31, 40, 100, 1},
+  {1, 255, 50, 120, 1},
+  {1, 127, 40, 100, 1},
+  {1, 63, 30, 80, 1},
+  {1, 31, 20, 60, 1}
 };
 
 uint8_t read_interval = 32;
-uint8_t read_counter;
+uint8_t read_counter = 0;
 
 void setup(void) {
   // ESP8266 Low power
@@ -97,9 +98,9 @@ void setup(void) {
   pinMode(A0, INPUT);
   pinMode(LED, OUTPUT);
 
-  clock.set_tempo(110000);
+  clock.set_tempo(90000);
   saw.set_period(200);
-  sine.set_frequency(110);
+  sine.set_frequency(220);
   
   //Serial.begin(115200);
 }
@@ -113,18 +114,13 @@ void loop() {
       high = true;
       digitalWrite(LED, LOW);
   
-      seq_step = seq_step + 1;
-      if(seq_step >= 8) {
-        seq_step = 0;
-      }
-  
       Step s = seq[seq_step];
   
       /*Serial.print("seq_step: "); Serial.print(seq_step);
       Serial.print(", note: "); Serial.print(note);
       Serial.println("");*/
 
-      uint16_t peak = ((uint16_t) s.velocity) << 8;
+      int32_t peak = static_cast<int32_t>(s.velocity) * max_amp / UINT8_MAX;
       lfsr_crush.set_decimate(s.crush_decimate);
       
       switch(s.note) {
@@ -135,13 +131,15 @@ void loop() {
 	lfsr_env.set_peak(peak);
 	lfsr_env.trigger();
 	break;	
-      }      
+      }
+
+      seq_step = (seq_step + 1) % 8;
     } else if (high && sync < high_threshold) {
       high = false;
       digitalWrite(LED, HIGH);
     }
   }
-
+  
   read_counter = (read_counter + 1) % read_interval;
   clock.advance();
 
@@ -166,20 +164,20 @@ void loop() {
 
   */
 
-  uint16_t amp = lfsr_env.value();
+  int32_t amp = lfsr_env.value();
   lfsr_env.advance();
 
-  int32_t amp32 = static_cast<int32_t>(amp);
-  int32_t lfsr_sample32 = amp32 * lfsr_osc / UINT16_MAX - INT16_MIN;
-  int32_t saw_sample32 = amp32 * saw_osc / UINT16_MAX - INT16_MIN;
-  int32_t sine_sample32 = amp32 * sine_osc / UINT16_MAX - INT16_MIN;
+  //int32_t lfsr_sample32 = amp * lfsr_osc / max_amp - INT16_MIN;
+  //int32_t saw_sample32 = amp * saw_osc / max_amp - INT16_MIN;
+  int32_t sine_sample32 = static_cast<int32_t>(sine_osc) * amp / max_amp;
   
   int32_t mix32 = /* saw_sample32 / 2 + */ sine_sample32;
-  int16_t mix = static_cast<int16_t>(mix32);
+  //int16_t mix = static_cast<int16_t>(mix32);
+  uint16_t mix = static_cast<uint16_t>(mix32 - INT16_MIN);
   
   lfsr_crush.advance(mix);
   
-  uint16_t sample = lfsr_crush.value();
+  uint16_t sample = mix;//lfsr_crush.value();
   //uint16_t sample = osc;
 
   /*Serial.print("amp: "); Serial.print(amp);

@@ -15,7 +15,9 @@ class Bitcrush {
   
   void advance(uint16_t sample) {
     if(this->decimate_counter == 0) {
-      this->sample = sample >> this->quantize << this->quantize;
+      this->sample = static_cast<uint16_t>(
+        static_cast<uint16_t>(sample >> this->quantize) << this->quantize
+      );
     }
 
     this->decimate_counter++;

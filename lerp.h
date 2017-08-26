@@ -7,11 +7,11 @@ class Lerp {
   uint32_t y_t_frac = 0;
   uint32_t inc_int = 0;
   uint32_t inc_frac = 0;
-  uint16_t y0 = 0;
+  int32_t y0 = 0;
   uint32_t t = 0;
-  uint16_t y = 0;
+  int32_t y = 0;
   
-  void reset(uint32_t dt, uint16_t y0, uint16_t y1) {
+  void reset(uint32_t dt, int32_t y0, int32_t y1) {
     this->negative = y1 < y0;
     this->dy = abs(y1 - y0);
     this->dt = dt;
@@ -21,12 +21,11 @@ class Lerp {
     this->inc_frac = dt > 0 ? dy % dt : 0;
     this->y0 = y0;
     this->t = 0;
-    this->y = 0;
+    this->y = y0;
   }
   
   bool ongoing() {
     bool yes = this->t < this->dt;
-    //Serial.print("ongoing: "); Serial.println(yes);
     return yes;
   }
   
@@ -50,9 +49,8 @@ class Lerp {
     }
   }
 
-  uint16_t value() {
-    uint16_t v = this->y;
-    //Serial.print("value: "); Serial.println(v);
+  int32_t value() {
+    int32_t v = this->y;
     return v;
   }
 };

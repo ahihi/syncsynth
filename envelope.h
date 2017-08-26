@@ -3,7 +3,7 @@ enum ARState { idle, attack, release };
 class AREnvelope {
  public:
   ARState state = idle;
-  uint16_t peak;
+  int32_t peak;
   uint32_t attack_msecs;
   uint32_t attack_samples;
   uint32_t release_msecs;
@@ -20,7 +20,7 @@ class AREnvelope {
     this->release_samples = SAMPLE_RATE * release_msecs / 1000;
   }
 
-  void set_peak(uint32_t peak) {
+  void set_peak(int32_t peak) {
     this->peak = peak;
   }
   
@@ -38,7 +38,7 @@ class AREnvelope {
       case attack:
         //Serial.println("-> release");
 	this->state = release;
-	this->lerp.reset(this->release_samples, this->peak, 0);
+	this->lerp.reset(this->release_samples, this->lerp.value(), 0);
 	break;
 
       case release:
@@ -50,7 +50,7 @@ class AREnvelope {
     }
   }
 
-  uint16_t value() {
+  int32_t value() {
     return this->lerp.value();
   }
 };
